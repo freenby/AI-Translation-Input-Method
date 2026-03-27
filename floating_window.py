@@ -166,9 +166,34 @@ class FloatingWindow(FramelessWindow):
         self._target_locked: bool = False
         self._translation_thread: TranslationThread | None = None
         self._auto_paste: bool = False
+        self._drag_pos: QPoint | None = None
 
         self._build_ui()
         self._apply_saved_position()
+
+    # ------------------------------------------------------------------
+    # Window dragging
+    # ------------------------------------------------------------------
+
+    def mousePressEvent(self, event):
+        if event.button() == Qt.MouseButton.LeftButton:
+            # 只在窗口顶部 60px 区域允许拖动（标题栏+语言栏）
+            if event.position().y() < 60:
+                self._drag_pos = event.globalPosition().toPoint() - self.frameGeometry().topLeft()
+                event.accept()
+                return
+        super().mousePressEvent(event)
+
+    def mouseMoveEvent(self, event):
+        if self._drag_pos is not None and event.buttons() & Qt.MouseButton.LeftButton:
+            self.move(event.globalPosition().toPoint() - self._drag_pos)
+            event.accept()
+            return
+        super().mouseMoveEvent(event)
+
+    def mouseReleaseEvent(self, event):
+        self._drag_pos = None
+        super().mouseReleaseEvent(event)
 
     # ------------------------------------------------------------------
     # UI construction
@@ -483,6 +508,10 @@ class FloatingWindow(FramelessWindow):
         tgt_hwnd = self._target_hwnd
         cursor_pos = self._target_cursor_pos
 
+        # 读取自动发送设置
+        auto_send = self._cfg.get("behavior", "auto_send", default=True)
+        send_key = self._cfg.get("behavior", "send_key", default="enter")
+
         def _worker():
             import ctypes
             import win32gui
@@ -514,9 +543,18 @@ class FloatingWindow(FramelessWindow):
 
             # Step 4: Ctrl+V paste.
             pyautogui.hotkey("ctrl", "v")
-            time.sleep(0.2)
+            time.sleep(0.15)
 
-            # Step 5: Restore TOPMOST and re-activate floating window.
+            # Step 5: Auto-send if enabled.
+            if auto_send:
+                time.sleep(0.1)
+                if send_key == "ctrl+enter":
+                    pyautogui.hotkey("ctrl", "enter")
+                else:
+                    pyautogui.press("enter")
+                time.sleep(0.1)
+
+            # Step 6: Restore TOPMOST and re-activate floating window.
             win32gui.SetWindowPos(
                 my_hwnd, win32con.HWND_TOPMOST, 0, 0, 0, 0,
                 win32con.SWP_NOMOVE | win32con.SWP_NOSIZE | win32con.SWP_NOACTIVATE,

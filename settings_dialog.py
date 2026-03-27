@@ -266,6 +266,7 @@ class SettingsDialog(QDialog):
         self.tabs.addTab(self._build_api_tab(), "API 配置")
         self.tabs.addTab(self._build_hotkey_tab(), "热键设置")
         self.tabs.addTab(self._build_lang_tab(), "语言设置")
+        self.tabs.addTab(self._build_behavior_tab(), "行为设置")
         self.tabs.addTab(self._build_prompt_tab(), "翻译提示词")
         self.tabs.addTab(self._build_phrases_tab(), "快捷话术")
 
@@ -490,6 +491,59 @@ class SettingsDialog(QDialog):
         return w
 
     # ------------------------------------------------------------------
+    # Tab: Behavior
+    # ------------------------------------------------------------------
+    def _build_behavior_tab(self) -> QWidget:
+        w = QWidget()
+        form = QFormLayout(w)
+        form.setContentsMargins(16, 16, 16, 8)
+        form.setSpacing(12)
+        form.setLabelAlignment(Qt.AlignmentFlag.AlignRight)
+
+        # ── 自动发送开关 ──────────────────────────────────────────────
+        from PyQt6.QtWidgets import QCheckBox
+        self.auto_send_check = QCheckBox("粘贴后自动发送消息")
+        self.auto_send_check.setChecked(
+            self._cfg.get("behavior", "auto_send", default=True)
+        )
+        self.auto_send_check.toggled.connect(self._on_auto_send_toggled)
+        form.addRow("", self.auto_send_check)
+
+        auto_send_hint = QLabel(
+            "开启后，翻译内容粘贴到聊天窗口后会自动按下发送键，\n"
+            "实现「一键翻译发送」的体验，无需再手动点击发送。"
+        )
+        auto_send_hint.setObjectName("hint")
+        auto_send_hint.setWordWrap(True)
+        form.addRow("", auto_send_hint)
+
+        # ── 发送方式 ─────────────────────────────────────────────────
+        self.send_key_combo = QComboBox()
+        self.send_key_combo.addItems(["Enter", "Ctrl+Enter"])
+        saved_key = self._cfg.get("behavior", "send_key", default="enter")
+        if saved_key == "ctrl+enter":
+            self.send_key_combo.setCurrentIndex(1)
+        else:
+            self.send_key_combo.setCurrentIndex(0)
+        form.addRow("发送方式:", self.send_key_combo)
+
+        send_key_hint = QLabel(
+            "大多数聊天软件用 Enter 发送（钉钉、微信、Slack 等）。\n"
+            "部分软件可设置为 Ctrl+Enter 发送，请根据实际情况选择。"
+        )
+        send_key_hint.setObjectName("hint")
+        send_key_hint.setWordWrap(True)
+        form.addRow("", send_key_hint)
+
+        # 根据开关状态启用/禁用发送方式选择
+        self._on_auto_send_toggled(self.auto_send_check.isChecked())
+
+        return w
+
+    def _on_auto_send_toggled(self, checked: bool):
+        self.send_key_combo.setEnabled(checked)
+
+    # ------------------------------------------------------------------
     # Tab: Prompt template
     # ------------------------------------------------------------------
     def _build_prompt_tab(self) -> QWidget:
@@ -633,6 +687,11 @@ class SettingsDialog(QDialog):
         # Languages
         self._cfg.set(self.default_src.currentText(), "languages", "input")
         self._cfg.set(self.default_tgt.currentText(), "languages", "output")
+
+        # Behavior
+        self._cfg.set(self.auto_send_check.isChecked(), "behavior", "auto_send")
+        send_key = "enter" if self.send_key_combo.currentIndex() == 0 else "ctrl+enter"
+        self._cfg.set(send_key, "behavior", "send_key")
 
         # Prompt
         self._cfg.set(self.prompt_edit.toPlainText().strip(), "prompt_template")

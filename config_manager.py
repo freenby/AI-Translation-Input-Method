@@ -17,6 +17,10 @@ DEFAULT_CONFIG = {
         "input": "中文",
         "output": "英语",
     },
+    "behavior": {
+        "auto_send": True,
+        "send_key": "enter",  # "enter" | "ctrl+enter" | "none"
+    },
     "prompt_template": (
         "请将以下{input_lang}翻译成{output_lang}，"
         "只返回翻译结果，不要解释：\n\n{text}"

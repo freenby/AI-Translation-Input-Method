@@ -14,10 +14,14 @@
     "input": "中文",
     "output": "英语"
   },
+  "behavior": {
+    "auto_send": true,
+    "send_key": "enter"
+  },
   "prompt_template": "请将以下{input_lang}翻译成{output_lang}，只返回翻译结果，不要解释： {text}",
   "ui": {
-    "window_x": 2318,
-    "window_y": 301,
+    "window_x": 58,
+    "window_y": 117,
     "opacity": 0.97
   },
   "phrases": [
