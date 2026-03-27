@@ -356,11 +356,29 @@ class FloatingWindow(FramelessWindow):
         clear_btn.clicked.connect(self._clear_all)
         bar.addWidget(clear_btn)
 
-        # 右下角调整大小控件
+        bar.addSpacing(20)
+
+        # 右下角调整大小区域（带提示）
+        resize_container = QWidget()
+        resize_layout = QHBoxLayout(resize_container)
+        resize_layout.setContentsMargins(0, 0, 0, 0)
+        resize_layout.setSpacing(4)
+
+        resize_hint = QLabel("↘ 拖拽调整")
+        resize_hint.setStyleSheet("color: #6c7086; font-size: 11px;")
+        resize_layout.addWidget(resize_hint)
+
         size_grip = QSizeGrip(self)
         size_grip.setFixedSize(16, 16)
-        size_grip.setStyleSheet("background: transparent;")
-        bar.addWidget(size_grip)
+        size_grip.setStyleSheet("""
+            QSizeGrip {
+                background: transparent;
+                image: none;
+            }
+        """)
+        resize_layout.addWidget(size_grip)
+
+        bar.addWidget(resize_container)
 
         return bar
 
