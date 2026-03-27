@@ -167,9 +167,44 @@ class FloatingWindow(FramelessWindow):
         self._translation_thread: TranslationThread | None = None
         self._auto_paste: bool = False
         self._drag_pos: QPoint | None = None
+        self._last_foreground_hwnd: int = 0  # 记录之前的前台窗口
+        self._last_cursor_pos: tuple[int, int] | None = None  # 记录之前的光标位置
 
         self._build_ui()
         self._apply_saved_position()
+
+        # 定时检查前台窗口和鼠标点击
+        self._check_foreground_timer = QTimer(self)
+        self._check_foreground_timer.timeout.connect(self._check_foreground_window)
+        self._check_foreground_timer.start(50)  # 每50ms检查一次，更准确捕获点击
+
+    # ------------------------------------------------------------------
+    # Track foreground window and mouse clicks
+    # ------------------------------------------------------------------
+
+    def _check_foreground_window(self):
+        """定期检查前台窗口和鼠标点击，记录最后点击位置"""
+        try:
+            import win32gui
+            import win32api
+            import ctypes
+
+            hwnd = win32gui.GetForegroundWindow()
+
+            # 如果前台窗口不是我们的窗口
+            if hwnd and not self._is_our_window(hwnd):
+                # 检测鼠标左键是否被按下
+                user32 = ctypes.windll.user32
+                if user32.GetAsyncKeyState(0x01) & 0x8000:  # VK_LBUTTON
+                    # 鼠标左键按下时，记录窗口和光标位置
+                    self._last_foreground_hwnd = hwnd
+                    self._last_cursor_pos = win32api.GetCursorPos()
+                elif hwnd != self._last_foreground_hwnd:
+                    # 窗口切换时也记录
+                    self._last_foreground_hwnd = hwnd
+                    self._last_cursor_pos = win32api.GetCursorPos()
+        except Exception:
+            pass
 
     # ------------------------------------------------------------------
     # Window dragging (title bar area only)
@@ -621,29 +656,60 @@ class FloatingWindow(FramelessWindow):
         self._set_status(f"已锁定: {self._target_name}" if self._target_name else "已锁定目标窗口")
 
     def _toggle_target_lock(self):
-        if not self._target_hwnd:
-            self._set_status("没有可锁定的目标，请先在聊天窗口按 Alt+T", error=True)
-            return
-        self._target_locked = not self._target_locked
-        self._update_target_indicator()
         if self._target_locked:
-            self._set_status(f"已锁定: {self._target_name}")
+            # 已锁定 -> 解锁
+            self._target_locked = False
+            self._target_hwnd = 0
+            self._target_name = ""
+            self._target_cursor_pos = None
+            self._update_target_indicator()
+            self._set_status("已解锁，请先点击聊天窗口，再点击「锁定」")
         else:
-            self._set_status("已解锁，下次按 Alt+T 将重新选择目标窗口")
+            # 未锁定 -> 锁定之前记录的窗口
+            self._lock_previous_window()
+
+    def _lock_previous_window(self):
+        """锁定用户之前点击的窗口"""
+        import win32gui
+        import win32api
+
+        try:
+            if self._last_foreground_hwnd and not self._is_our_window(self._last_foreground_hwnd):
+                hwnd = self._last_foreground_hwnd
+                self._target_hwnd = hwnd
+                self._target_name = self._get_window_title(hwnd)
+
+                # 使用记录的光标位置，如果没有则使用窗口中心
+                if self._last_cursor_pos:
+                    self._target_cursor_pos = self._last_cursor_pos
+                else:
+                    # 获取窗口矩形，使用中心点
+                    rect = win32gui.GetWindowRect(hwnd)
+                    cx = (rect[0] + rect[2]) // 2
+                    cy = (rect[1] + rect[3]) // 2
+                    self._target_cursor_pos = (cx, cy)
+
+                self._target_locked = True
+                self._update_target_indicator()
+                self._set_status(f"已锁定: {self._target_name}（如输入位置不对，请用 Alt+T 重新锁定）")
+            else:
+                self._set_status("请先点击聊天窗口，再点击「锁定」", error=True)
+        except Exception as e:
+            self._set_status(f"锁定失败: {e}", error=True)
 
     def _update_target_indicator(self):
         name = (self._target_name or "").strip()
-        if len(name) > 35:
-            name = name[:35] + "…"
+        if len(name) > 30:
+            name = name[:30] + "…"
         if self._target_locked and self._target_hwnd:
             self.target_label.setText(f"🔒 {name}")
             self.target_label.setObjectName("target_locked")
             self.lock_btn.setText("解锁")
             self.lock_btn.setObjectName("lock_active")
         else:
-            self.target_label.setText("未锁定")
+            self.target_label.setText("点击锁定选择窗口")
             self.target_label.setObjectName("target_unlocked")
-            self.lock_btn.setText("锁定")
+            self.lock_btn.setText("🎯 锁定")
             self.lock_btn.setObjectName("lock_btn")
         for w in (self.target_label, self.lock_btn):
             w.style().unpolish(w)
