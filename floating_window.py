@@ -36,30 +36,31 @@ QWidget#card {
 QLabel {
     color: #cdd6f4;
     font-family: "Microsoft YaHei UI", "Segoe UI", sans-serif;
+    font-size: 13px;
 }
 QLabel#title {
-    font-size: 14px; font-weight: bold; color: #cba6f7;
+    font-size: 16px; font-weight: bold; color: #cba6f7;
 }
 QLabel#section {
-    font-size: 11px; color: #6c7086;
+    font-size: 12px; color: #6c7086;
 }
 QLabel#status {
-    font-size: 11px; color: #a6adc8;
+    font-size: 12px; color: #a6adc8;
 }
 QLabel#target_unlocked {
     background-color: #313244; color: #6c7086;
     border: 1px solid #45475a; border-radius: 6px;
-    padding: 2px 8px; font-size: 11px;
+    padding: 4px 12px; font-size: 13px;
 }
 QLabel#target_locked {
     background-color: #1e3a2f; color: #a6e3a1;
     border: 1px solid #a6e3a1; border-radius: 6px;
-    padding: 2px 8px; font-size: 11px;
+    padding: 4px 12px; font-size: 13px;
 }
 QTextEdit {
     background-color: #313244; color: #cdd6f4;
     border: 1px solid #45475a; border-radius: 8px;
-    padding: 8px; font-size: 14px;
+    padding: 10px; font-size: 14px;
     font-family: "Microsoft YaHei UI", "Segoe UI", sans-serif;
     selection-background-color: #585b70;
 }
@@ -67,17 +68,18 @@ QTextEdit:focus { border: 1px solid #cba6f7; }
 QComboBox {
     background-color: #313244; color: #cdd6f4;
     border: 1px solid #45475a; border-radius: 6px;
-    padding: 4px 8px; font-size: 12px; min-width: 90px;
+    padding: 6px 12px; font-size: 13px; min-width: 100px;
 }
-QComboBox::drop-down { border: none; width: 20px; }
+QComboBox::drop-down { border: none; width: 24px; }
 QComboBox QAbstractItemView {
     background-color: #313244; color: #cdd6f4;
     selection-background-color: #585b70; border: 1px solid #45475a;
+    font-size: 13px;
 }
 QPushButton {
     background-color: #cba6f7; color: #1e1e2e;
     border: none; border-radius: 6px;
-    padding: 7px 14px; font-size: 13px; font-weight: bold;
+    padding: 8px 16px; font-size: 13px; font-weight: bold;
     font-family: "Microsoft YaHei UI", "Segoe UI", sans-serif;
 }
 QPushButton:hover { background-color: #d5b8ff; }
@@ -89,8 +91,8 @@ QPushButton#secondary {
 QPushButton#secondary:hover { background-color: #45475a; }
 QPushButton#icon_btn {
     background-color: transparent; color: #6c7086;
-    border: none; padding: 6px 10px; font-size: 16px;
-    font-weight: normal; min-width: 32px; min-height: 32px;
+    border: none; padding: 8px 12px; font-size: 18px;
+    font-weight: normal; min-width: 36px; min-height: 36px;
 }
 QPushButton#icon_btn:hover {
     color: #cdd6f4; background-color: #313244; border-radius: 6px;
@@ -98,13 +100,13 @@ QPushButton#icon_btn:hover {
 QPushButton#lock_btn {
     background-color: #313244; color: #cdd6f4;
     border: 1px solid #45475a; border-radius: 6px;
-    padding: 4px 10px; font-size: 11px; font-weight: normal; min-width: 50px;
+    padding: 6px 14px; font-size: 13px; font-weight: normal; min-width: 60px;
 }
 QPushButton#lock_btn:hover { background-color: #45475a; }
 QPushButton#lock_active {
     background-color: #1e3a2f; color: #a6e3a1;
     border: 1px solid #a6e3a1; border-radius: 6px;
-    padding: 4px 10px; font-size: 11px; font-weight: bold; min-width: 50px;
+    padding: 6px 14px; font-size: 13px; font-weight: bold; min-width: 60px;
 }
 QPushButton#lock_active:hover { background-color: #2a4d3e; }
 """
@@ -176,7 +178,7 @@ class FloatingWindow(FramelessWindow):
         self.setWindowFlags(
             self.windowFlags() | Qt.WindowType.WindowStaysOnTopHint
         )
-        self.setMinimumWidth(480)
+        self.setMinimumWidth(600)
         self.setStyleSheet(STYLE)
         self.titleBar.hide()
 
@@ -187,11 +189,12 @@ class FloatingWindow(FramelessWindow):
         card = QFrame()
         card.setObjectName("card")
         card_layout = QVBoxLayout(card)
-        card_layout.setContentsMargins(14, 10, 14, 14)
-        card_layout.setSpacing(8)
+        card_layout.setContentsMargins(16, 12, 16, 16)
+        card_layout.setSpacing(10)
         root.addWidget(card)
 
         card_layout.addLayout(self._build_title_bar())
+        card_layout.addLayout(self._build_language_bar())
 
         div = QFrame()
         div.setFrameShape(QFrame.Shape.HLine)
@@ -205,7 +208,7 @@ class FloatingWindow(FramelessWindow):
 
         self.input_edit = InputTextEdit()
         self.input_edit.setPlaceholderText("在这里输入要翻译的内容…")
-        self.input_edit.setFixedHeight(120)
+        self.input_edit.setFixedHeight(130)
         self.input_edit.enter_pressed.connect(self.do_translate)
         card_layout.addWidget(self.input_edit)
 
@@ -216,7 +219,7 @@ class FloatingWindow(FramelessWindow):
         self.output_edit = QTextEdit()
         self.output_edit.setReadOnly(True)
         self.output_edit.setPlaceholderText("翻译结果显示在这里…")
-        self.output_edit.setFixedHeight(120)
+        self.output_edit.setFixedHeight(130)
         card_layout.addWidget(self.output_edit)
 
         card_layout.addLayout(self._build_bottom_bar())
@@ -225,14 +228,17 @@ class FloatingWindow(FramelessWindow):
 
     def _build_title_bar(self) -> QHBoxLayout:
         bar = QHBoxLayout()
-        bar.setSpacing(6)
+        bar.setSpacing(10)
 
         title = QLabel("⚡ AI翻译")
         title.setObjectName("title")
         bar.addWidget(title)
 
+        bar.addSpacing(12)
+
         self.target_label = QLabel("未锁定")
         self.target_label.setObjectName("target_unlocked")
+        self.target_label.setMinimumWidth(150)
         bar.addWidget(self.target_label)
 
         self.lock_btn = QPushButton("锁定")
@@ -241,24 +247,6 @@ class FloatingWindow(FramelessWindow):
         bar.addWidget(self.lock_btn)
 
         bar.addStretch()
-
-        self.src_combo = QComboBox()
-        for lang in LANGUAGES:
-            self.src_combo.addItem(lang)
-        self.src_combo.setCurrentText(self._cfg.get("languages", "input", default="中文"))
-        bar.addWidget(self.src_combo)
-
-        arrow = QLabel("→")
-        arrow.setStyleSheet("color: #6c7086; font-size: 14px;")
-        bar.addWidget(arrow)
-
-        self.tgt_combo = QComboBox()
-        for lang in LANGUAGES:
-            self.tgt_combo.addItem(lang)
-        self.tgt_combo.setCurrentText(self._cfg.get("languages", "output", default="英语"))
-        bar.addWidget(self.tgt_combo)
-
-        bar.addSpacing(8)
 
         self.settings_btn = QPushButton("⚙")
         self.settings_btn.setObjectName("icon_btn")
@@ -271,6 +259,42 @@ class FloatingWindow(FramelessWindow):
         self.close_btn.setToolTip("隐藏 (Esc)")
         self.close_btn.clicked.connect(self.hide_window)
         bar.addWidget(self.close_btn)
+
+        return bar
+
+    def _build_language_bar(self) -> QHBoxLayout:
+        bar = QHBoxLayout()
+        bar.setSpacing(10)
+
+        src_lbl = QLabel("源语言:")
+        src_lbl.setStyleSheet("color: #a6adc8; font-size: 13px;")
+        bar.addWidget(src_lbl)
+
+        self.src_combo = QComboBox()
+        for lang in LANGUAGES:
+            self.src_combo.addItem(lang)
+        self.src_combo.setCurrentText(self._cfg.get("languages", "input", default="中文"))
+        bar.addWidget(self.src_combo)
+
+        bar.addSpacing(20)
+
+        arrow = QLabel("→")
+        arrow.setStyleSheet("color: #cba6f7; font-size: 18px; font-weight: bold;")
+        bar.addWidget(arrow)
+
+        bar.addSpacing(20)
+
+        tgt_lbl = QLabel("目标语言:")
+        tgt_lbl.setStyleSheet("color: #a6adc8; font-size: 13px;")
+        bar.addWidget(tgt_lbl)
+
+        self.tgt_combo = QComboBox()
+        for lang in LANGUAGES:
+            self.tgt_combo.addItem(lang)
+        self.tgt_combo.setCurrentText(self._cfg.get("languages", "output", default="英语"))
+        bar.addWidget(self.tgt_combo)
+
+        bar.addStretch()
 
         return bar
 
@@ -412,6 +436,7 @@ class FloatingWindow(FramelessWindow):
 
         if self._target_locked and self._target_hwnd:
             self._auto_paste = True
+            self.input_edit.clear()  # 翻译完成立即清空，用户可以马上输入下一句
             self._paste_to_target()
         else:
             self._set_status("翻译完成 ✓")
@@ -503,9 +528,8 @@ class FloatingWindow(FramelessWindow):
         def _on_done():
             self.activateWindow()
             self._set_status("已粘贴到聊天框 ✓")
-            if self._auto_paste:
-                self._auto_paste = False
-                self.input_edit.clear()
+            self._auto_paste = False
+            self.input_edit.clear()
             self.input_edit.setFocus()
 
         def _run():
@@ -543,8 +567,8 @@ class FloatingWindow(FramelessWindow):
 
     def _update_target_indicator(self):
         name = (self._target_name or "").strip()
-        if len(name) > 25:
-            name = name[:25] + "…"
+        if len(name) > 35:
+            name = name[:35] + "…"
         if self._target_locked and self._target_hwnd:
             self.target_label.setText(f"🔒 {name}")
             self.target_label.setObjectName("target_locked")
@@ -617,7 +641,7 @@ class FloatingWindow(FramelessWindow):
     def _set_status(self, msg: str, error: bool = False):
         self.status_label.setText(msg)
         color = "#f38ba8" if error else "#a6adc8"
-        self.status_label.setStyleSheet(f"color: {color}; font-size: 11px;")
+        self.status_label.setStyleSheet(f"color: {color}; font-size: 12px;")
 
     def _clear_all(self):
         self.input_edit.clear()
