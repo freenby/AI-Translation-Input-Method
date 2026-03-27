@@ -1,0 +1,29 @@
+{
+  "hotkeys": {
+    "show_window": "alt+t",
+    "translate_clipboard": "alt+c"
+  },
+  "api": {
+    "api_key": "sk-sp-a1915429e64745dc83721a7f5bc9d7cf",
+    "base_url": "https://coding-intl.dashscope.aliyuncs.com/v1",
+    "model": "MiniMax-M2.5",
+    "timeout": 30,
+    "proxy": ""
+  },
+  "languages": {
+    "input": "中文",
+    "output": "英语"
+  },
+  "prompt_template": "请将以下{input_lang}翻译成{output_lang}，只返回翻译结果，不要解释： {text}",
+  "ui": {
+    "window_x": 2384,
+    "window_y": 352,
+    "opacity": 0.97
+  },
+  "phrases": [
+    {
+      "content": "您好，请问您的订单有什么问题需要帮助吗？",
+      "name": "示例：催单话术"
+    }
+  ]
+}
