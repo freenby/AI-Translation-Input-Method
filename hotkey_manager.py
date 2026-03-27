@@ -41,7 +41,7 @@ class HotkeyManager(QObject):
         if not hotkey:
             return
         try:
-            keyboard.add_hotkey(hotkey, callback, suppress=True)
+            keyboard.add_hotkey(hotkey, callback, suppress=True, trigger_on_release=True)
             self._registered[hotkey] = callback
         except Exception as e:
             print(f"[HotkeyManager] 无法注册热键 '{hotkey}': {e}")

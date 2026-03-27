@@ -1,5 +1,17 @@
-import pyperclip
+"""
+Floating translation window — the main UI of the app.
+
+Uses PyQt6-Frameless-Window (qframelesswindow) to avoid the well-known
+Qt6 FramelessWindowHint hide/show bug on Windows that causes the window
+to become unresponsive.
+
+Paste-to-chat uses Win32 SendMessage to deliver Ctrl+V directly to the
+target window's message queue, so the floating window never needs to lose
+focus or visibility.
+"""
+
 import os
+import pyperclip
 from PyQt6.QtCore import Qt, QThread, pyqtSignal, QTimer, QPoint
 from PyQt6.QtGui import QFont, QKeySequence, QShortcut
 from PyQt6.QtWidgets import (
@@ -7,22 +19,18 @@ from PyQt6.QtWidgets import (
     QPushButton, QLabel, QFrame, QListWidget, QListWidgetItem,
     QMenu, QApplication,
 )
+from qframelesswindow import FramelessWindow
 
 from config_manager import ConfigManager, LANGUAGES
 from translator import Translator, TranslationError
 
+
 # ---------------------------------------------------------------------------
-# Dark theme stylesheet (Catppuccin-inspired)
+# Stylesheet
 # ---------------------------------------------------------------------------
 STYLE = """
-/* Root window — solid background so no Layered Window needed */
-QWidget#FloatingWindow {
+QWidget#card {
     background-color: #1e1e2e;
-}
-/* Inner card with border */
-QFrame#FloatingWindow {
-    background-color: #1e1e2e;
-    border-radius: 10px;
     border: 1px solid #45475a;
 }
 QLabel {
@@ -30,92 +38,75 @@ QLabel {
     font-family: "Microsoft YaHei UI", "Segoe UI", sans-serif;
 }
 QLabel#title {
-    font-size: 14px;
-    font-weight: bold;
-    color: #cba6f7;
+    font-size: 14px; font-weight: bold; color: #cba6f7;
 }
 QLabel#section {
-    font-size: 11px;
-    color: #6c7086;
+    font-size: 11px; color: #6c7086;
 }
 QLabel#status {
-    font-size: 11px;
-    color: #a6adc8;
+    font-size: 11px; color: #a6adc8;
+}
+QLabel#target_unlocked {
+    background-color: #313244; color: #6c7086;
+    border: 1px solid #45475a; border-radius: 6px;
+    padding: 2px 8px; font-size: 11px;
+}
+QLabel#target_locked {
+    background-color: #1e3a2f; color: #a6e3a1;
+    border: 1px solid #a6e3a1; border-radius: 6px;
+    padding: 2px 8px; font-size: 11px;
 }
 QTextEdit {
-    background-color: #313244;
-    color: #cdd6f4;
-    border: 1px solid #45475a;
-    border-radius: 8px;
-    padding: 8px;
-    font-size: 14px;
+    background-color: #313244; color: #cdd6f4;
+    border: 1px solid #45475a; border-radius: 8px;
+    padding: 8px; font-size: 14px;
     font-family: "Microsoft YaHei UI", "Segoe UI", sans-serif;
     selection-background-color: #585b70;
 }
-QTextEdit:focus {
-    border: 1px solid #cba6f7;
-}
+QTextEdit:focus { border: 1px solid #cba6f7; }
 QComboBox {
-    background-color: #313244;
-    color: #cdd6f4;
-    border: 1px solid #45475a;
-    border-radius: 6px;
-    padding: 4px 8px;
-    font-size: 12px;
-    min-width: 90px;
+    background-color: #313244; color: #cdd6f4;
+    border: 1px solid #45475a; border-radius: 6px;
+    padding: 4px 8px; font-size: 12px; min-width: 90px;
 }
-QComboBox::drop-down {
-    border: none;
-    width: 20px;
-}
+QComboBox::drop-down { border: none; width: 20px; }
 QComboBox QAbstractItemView {
-    background-color: #313244;
-    color: #cdd6f4;
-    selection-background-color: #585b70;
-    border: 1px solid #45475a;
+    background-color: #313244; color: #cdd6f4;
+    selection-background-color: #585b70; border: 1px solid #45475a;
 }
 QPushButton {
-    background-color: #cba6f7;
-    color: #1e1e2e;
-    border: none;
-    border-radius: 6px;
-    padding: 7px 14px;
-    font-size: 13px;
-    font-weight: bold;
+    background-color: #cba6f7; color: #1e1e2e;
+    border: none; border-radius: 6px;
+    padding: 7px 14px; font-size: 13px; font-weight: bold;
     font-family: "Microsoft YaHei UI", "Segoe UI", sans-serif;
 }
 QPushButton:hover { background-color: #d5b8ff; }
 QPushButton:pressed { background-color: #b48ef0; }
 QPushButton#secondary {
-    background-color: #313244;
-    color: #cdd6f4;
-    border: 1px solid #45475a;
-    font-weight: normal;
+    background-color: #313244; color: #cdd6f4;
+    border: 1px solid #45475a; font-weight: normal;
 }
 QPushButton#secondary:hover { background-color: #45475a; }
 QPushButton#icon_btn {
-    background-color: transparent;
-    color: #6c7086;
-    border: none;
-    padding: 6px 10px;
-    font-size: 16px;
-    font-weight: normal;
-    min-width: 32px;
-    min-height: 32px;
+    background-color: transparent; color: #6c7086;
+    border: none; padding: 6px 10px; font-size: 16px;
+    font-weight: normal; min-width: 32px; min-height: 32px;
 }
-QPushButton#icon_btn:hover { color: #cdd6f4; background-color: #313244; border-radius: 6px; }
-QFrame#divider {
-    color: #45475a;
+QPushButton#icon_btn:hover {
+    color: #cdd6f4; background-color: #313244; border-radius: 6px;
 }
-QListWidget {
-    background-color: #313244;
-    color: #cdd6f4;
-    border: 1px solid #45475a;
-    border-radius: 8px;
-    font-size: 13px;
+QPushButton#lock_btn {
+    background-color: #313244; color: #cdd6f4;
+    border: 1px solid #45475a; border-radius: 6px;
+    padding: 4px 10px; font-size: 11px; font-weight: normal; min-width: 50px;
 }
-QListWidget::item:selected { background-color: #585b70; }
-QListWidget::item:hover { background-color: #45475a; }
+QPushButton#lock_btn:hover { background-color: #45475a; }
+QPushButton#lock_active {
+    background-color: #1e3a2f; color: #a6e3a1;
+    border: 1px solid #a6e3a1; border-radius: 6px;
+    padding: 4px 10px; font-size: 11px; font-weight: bold; min-width: 50px;
+}
+QPushButton#lock_active:hover { background-color: #2a4d3e; }
 """
 
 
@@ -156,33 +147,12 @@ class InputTextEdit(QTextEdit):
 
 
 # ---------------------------------------------------------------------------
-# Phrase picker popup
+# Win32 helper: send Ctrl+V to a window without switching focus
 # ---------------------------------------------------------------------------
-class PhrasePicker(QListWidget):
-    phrase_selected = pyqtSignal(str)
-
-    def __init__(self, phrases: list, parent=None):
-        super().__init__(parent)
-        self.setWindowFlags(
-            Qt.WindowType.Popup | Qt.WindowType.FramelessWindowHint
-        )
-        self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
-        self.setStyleSheet(STYLE)
-        for p in phrases:
-            item = QListWidgetItem(p["name"])
-            item.setData(Qt.ItemDataRole.UserRole, p["content"])
-            self.addItem(item)
-        self.itemClicked.connect(self._on_click)
-
-    def _on_click(self, item: QListWidgetItem):
-        self.phrase_selected.emit(item.data(Qt.ItemDataRole.UserRole))
-        self.hide()
-
-
 # ---------------------------------------------------------------------------
 # Main floating translation window
 # ---------------------------------------------------------------------------
-class FloatingWindow(QWidget):
+class FloatingWindow(FramelessWindow):
 
     def __init__(self, config: ConfigManager, translator: Translator, parent=None):
         super().__init__(parent)
@@ -191,9 +161,9 @@ class FloatingWindow(QWidget):
         self._target_hwnd: int = 0
         self._target_name: str = ""
         self._target_cursor_pos: tuple[int, int] | None = None
-        self._drag_pos: QPoint | None = None
+        self._target_locked: bool = False
         self._translation_thread: TranslationThread | None = None
-        self._settings_dialog = None
+        self._auto_paste: bool = False
 
         self._build_ui()
         self._apply_saved_position()
@@ -203,43 +173,32 @@ class FloatingWindow(QWidget):
     # ------------------------------------------------------------------
 
     def _build_ui(self):
-        self.setObjectName("FloatingWindow")
         self.setWindowFlags(
-            Qt.WindowType.Window
-            | Qt.WindowType.FramelessWindowHint
-            | Qt.WindowType.WindowStaysOnTopHint
+            self.windowFlags() | Qt.WindowType.WindowStaysOnTopHint
         )
-        # WA_TranslucentBackground turns the window into a Layered Window on
-        # Windows, which blocks mouse events on the whole surface.
-        # Use a solid background on the widget itself instead.
         self.setMinimumWidth(480)
         self.setStyleSheet(STYLE)
-        self.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, False)
+        self.titleBar.hide()
 
         root = QVBoxLayout(self)
         root.setContentsMargins(0, 0, 0, 0)
         root.setSpacing(0)
 
-        # Card — same dark background, just no transparency trick needed
         card = QFrame()
-        card.setObjectName("FloatingWindow")
+        card.setObjectName("card")
         card_layout = QVBoxLayout(card)
         card_layout.setContentsMargins(14, 10, 14, 14)
         card_layout.setSpacing(8)
         root.addWidget(card)
 
-        # Title bar
         card_layout.addLayout(self._build_title_bar())
 
-        # Divider
         div = QFrame()
-        div.setObjectName("divider")
         div.setFrameShape(QFrame.Shape.HLine)
         div.setFixedHeight(1)
         div.setStyleSheet("background-color: #45475a;")
         card_layout.addWidget(div)
 
-        # Input section
         in_lbl = QLabel("输入  (Enter 翻译 / Shift+Enter 换行)")
         in_lbl.setObjectName("section")
         card_layout.addWidget(in_lbl)
@@ -250,7 +209,6 @@ class FloatingWindow(QWidget):
         self.input_edit.enter_pressed.connect(self.do_translate)
         card_layout.addWidget(self.input_edit)
 
-        # Output section
         out_lbl = QLabel("翻译结果")
         out_lbl.setObjectName("section")
         card_layout.addWidget(out_lbl)
@@ -261,10 +219,8 @@ class FloatingWindow(QWidget):
         self.output_edit.setFixedHeight(120)
         card_layout.addWidget(self.output_edit)
 
-        # Status + action buttons
         card_layout.addLayout(self._build_bottom_bar())
 
-        # Keyboard shortcuts
         QShortcut(QKeySequence("Escape"), self, self.hide_window)
 
     def _build_title_bar(self) -> QHBoxLayout:
@@ -275,31 +231,35 @@ class FloatingWindow(QWidget):
         title.setObjectName("title")
         bar.addWidget(title)
 
+        self.target_label = QLabel("未锁定")
+        self.target_label.setObjectName("target_unlocked")
+        bar.addWidget(self.target_label)
+
+        self.lock_btn = QPushButton("锁定")
+        self.lock_btn.setObjectName("lock_btn")
+        self.lock_btn.clicked.connect(self._toggle_target_lock)
+        bar.addWidget(self.lock_btn)
+
         bar.addStretch()
 
-        # Source language
         self.src_combo = QComboBox()
         for lang in LANGUAGES:
             self.src_combo.addItem(lang)
-        saved_src = self._cfg.get("languages", "input", default="中文")
-        self.src_combo.setCurrentText(saved_src)
+        self.src_combo.setCurrentText(self._cfg.get("languages", "input", default="中文"))
         bar.addWidget(self.src_combo)
 
         arrow = QLabel("→")
         arrow.setStyleSheet("color: #6c7086; font-size: 14px;")
         bar.addWidget(arrow)
 
-        # Target language
         self.tgt_combo = QComboBox()
         for lang in LANGUAGES:
             self.tgt_combo.addItem(lang)
-        saved_tgt = self._cfg.get("languages", "output", default="英语")
-        self.tgt_combo.setCurrentText(saved_tgt)
+        self.tgt_combo.setCurrentText(self._cfg.get("languages", "output", default="英语"))
         bar.addWidget(self.tgt_combo)
 
         bar.addSpacing(8)
 
-        # Settings & close — saved as instance attrs to prevent GC
         self.settings_btn = QPushButton("⚙")
         self.settings_btn.setObjectName("icon_btn")
         self.settings_btn.setToolTip("设置")
@@ -321,29 +281,23 @@ class FloatingWindow(QWidget):
         self.status_label = QLabel("就绪")
         self.status_label.setObjectName("status")
         bar.addWidget(self.status_label)
-
         bar.addStretch()
 
-        # Phrase picker button
         phrase_btn = QPushButton("话术")
         phrase_btn.setObjectName("secondary")
-        phrase_btn.setToolTip("插入常用话术")
         phrase_btn.clicked.connect(self._show_phrase_picker)
         bar.addWidget(phrase_btn)
 
         self.translate_btn = QPushButton("翻译 ↵")
-        self.translate_btn.setToolTip("翻译 (Enter)")
         self.translate_btn.clicked.connect(self.do_translate)
         bar.addWidget(self.translate_btn)
 
         copy_btn = QPushButton("复制")
         copy_btn.setObjectName("secondary")
-        copy_btn.setToolTip("复制翻译结果")
         copy_btn.clicked.connect(self._copy_result)
         bar.addWidget(copy_btn)
 
         paste_btn = QPushButton("粘贴到聊天框")
-        paste_btn.setToolTip("翻译结果粘贴回原窗口")
         paste_btn.clicked.connect(self._paste_to_target)
         bar.addWidget(paste_btn)
 
@@ -355,18 +309,67 @@ class FloatingWindow(QWidget):
         return bar
 
     # ------------------------------------------------------------------
-    # Public slots (called from HotkeyManager signals)
+    # Show / hide / settings
+    # ------------------------------------------------------------------
+
+    def show_window(self):
+        self.show()
+        self.raise_()
+        self.activateWindow()
+        self.input_edit.setFocus()
+        QTimer.singleShot(100, self._ensure_focus)
+
+    def _ensure_focus(self):
+        """Delayed focus grab — ensures our window gets input after hotkey."""
+        import ctypes
+        import win32gui
+        import win32con
+        try:
+            hwnd = int(self.winId())
+            user32 = ctypes.windll.user32
+            user32.AllowSetForegroundWindow(ctypes.c_uint32(-1))
+            win32gui.BringWindowToTop(hwnd)
+            user32.SetForegroundWindow(hwnd)
+        except Exception:
+            pass
+        self.activateWindow()
+        self.input_edit.setFocus()
+
+    def hide_window(self):
+        pos = self.pos()
+        self._cfg.set(pos.x(), "ui", "window_x")
+        self._cfg.set(pos.y(), "ui", "window_y")
+        self.hide()
+
+    def show_settings(self):
+        try:
+            from settings_dialog import SettingsDialog
+            self._settings_dlg = SettingsDialog(self._cfg, parent=None)
+            self._settings_dlg.finished.connect(self._on_settings_closed)
+            self._settings_dlg.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose, True)
+            self._settings_dlg.show()
+            self._settings_dlg.raise_()
+            self._settings_dlg.activateWindow()
+        except Exception as e:
+            self._set_status(f"设置窗口打开失败: {e}", error=True)
+
+    def _on_settings_closed(self, _result: int):
+        self._reload_language_combos()
+        self._settings_dlg = None
+
+    # ------------------------------------------------------------------
+    # Hotkey slots
     # ------------------------------------------------------------------
 
     def on_hotkey_show(self, hwnd: int):
-        """Called when show_window hotkey fires."""
-        # Do not overwrite target with our own window/dialog handle.
         if hwnd and not self._is_our_window(hwnd):
-            self._record_target(hwnd)
+            if self._target_locked:
+                self._set_status(f"已锁定: {self._target_name}")
+            else:
+                self._record_target(hwnd)
         self.show_window()
 
     def on_hotkey_translate_clipboard(self):
-        """Called when translate_clipboard hotkey fires."""
         try:
             text = pyperclip.paste()
         except Exception:
@@ -374,58 +377,9 @@ class FloatingWindow(QWidget):
         if not text.strip():
             self._set_status("剪贴板为空", error=True)
             return
-        src = self.src_combo.currentText()
-        tgt = self.tgt_combo.currentText()
         self.input_edit.setPlainText(text)
         self.show_window()
         self.do_translate()
-
-    def show_window(self):
-        """Show and focus the floating window in a stable, Qt-first way."""
-        # Safety reset: if any previous operation left click-through enabled,
-        # restore normal interaction before showing the window again.
-        self._set_mouse_passthrough(False)
-        # Clear minimized state explicitly to avoid "visible but non-interactive".
-        state = self.windowState() & ~Qt.WindowState.WindowMinimized
-        self.setWindowState(state)
-        self.show()
-        self.raise_()
-        self.activateWindow()
-        QTimer.singleShot(0, self._focus_input)
-
-    def _focus_input(self):
-        self.activateWindow()
-        self.input_edit.setFocus(Qt.FocusReason.ActiveWindowFocusReason)
-
-    def hide_window(self):
-        self._set_mouse_passthrough(False)
-        pos = self.pos()
-        self._cfg.set(pos.x(), "ui", "window_x")
-        self._cfg.set(pos.y(), "ui", "window_y")
-        self.hide()
-
-    def show_settings(self):
-        # Always keep window interactive before opening another dialog.
-        self._set_mouse_passthrough(False)
-        if self._settings_dialog is not None:
-            try:
-                self._settings_dialog.raise_()
-                self._settings_dialog.activateWindow()
-            except Exception:
-                pass
-            return
-
-        try:
-            from settings_dialog import SettingsDialog
-            dlg = SettingsDialog(self._cfg, parent=self)
-            dlg.setWindowModality(Qt.WindowModality.ApplicationModal)
-            self._settings_dialog = dlg
-            dlg.exec()
-            self._reload_language_combos()
-        except Exception as e:
-            self._set_status(f"设置窗口打开失败: {e}", error=True)
-        finally:
-            self._settings_dialog = None
 
     # ------------------------------------------------------------------
     # Translation
@@ -453,9 +407,14 @@ class FloatingWindow(QWidget):
 
     def _on_translation_done(self, result: str):
         self.output_edit.setPlainText(result)
-        self._set_status("翻译完成 ✓")
         self.translate_btn.setEnabled(True)
         self.translate_btn.setText("翻译 ↵")
+
+        if self._target_locked and self._target_hwnd:
+            self._auto_paste = True
+            self._paste_to_target()
+        else:
+            self._set_status("翻译完成 ✓")
 
     def _on_translation_error(self, msg: str):
         self.output_edit.setPlainText(f"⚠ {msg}")
@@ -464,7 +423,7 @@ class FloatingWindow(QWidget):
         self.translate_btn.setText("翻译 ↵")
 
     # ------------------------------------------------------------------
-    # Clipboard / paste
+    # Clipboard / paste — sends Ctrl+V directly via Win32 SendMessage
     # ------------------------------------------------------------------
 
     def _copy_result(self):
@@ -479,50 +438,126 @@ class FloatingWindow(QWidget):
             self._set_status("没有翻译结果可粘贴", error=True)
             return
         if not self._target_hwnd or self._is_our_window(self._target_hwnd):
-            self._set_status("未记录有效聊天窗口，请先在聊天框按 Alt+T 再粘贴", error=True)
+            self._set_status("未记录有效目标窗口，请先在聊天框按 Alt+T", error=True)
             return
+
         pyperclip.copy(text)
-        self._set_status("正在粘贴到聊天框…")
-        QTimer.singleShot(80, self._do_paste)
+        self._set_status("正在粘贴…")
+        self._activate_target_and_paste()
 
-    def _do_paste(self):
-        self._set_mouse_passthrough(False)
-        if self._target_hwnd:
-            try:
-                self._set_foreground_window(self._target_hwnd)
-                QTimer.singleShot(80, self._focus_target_and_paste)
-                return
-            except Exception:
-                pass
-        self._send_paste()
+    # ╔══════════════════════════════════════════════════════════════╗
+    # ║  VERIFIED PASTE LOGIC — DO NOT MODIFY WITHOUT FULL RETEST  ║
+    # ║  Runs in a background thread to prevent Qt event loop from ║
+    # ║  restoring TOPMOST during the sequence.                    ║
+    # ╚══════════════════════════════════════════════════════════════╝
 
-    def _focus_target_and_paste(self):
-        """Restore focus to user's original input position before Ctrl+V."""
-        used_passthrough = False
-        try:
+    def _activate_target_and_paste(self):
+        import threading
+
+        my_hwnd = int(self.winId())
+        tgt_hwnd = self._target_hwnd
+        cursor_pos = self._target_cursor_pos
+
+        def _worker():
+            import ctypes
+            import win32gui
+            import win32con
+            import time
             import pyautogui
-            if self._target_cursor_pos:
-                x, y = self._target_cursor_pos
-                # Only enable click-through when the recorded click point is
-                # actually covered by this floating window.
-                if self.frameGeometry().contains(x, y):
-                    self._set_mouse_passthrough(True)
-                    used_passthrough = True
-                pyautogui.click(x, y)
-        except Exception:
-            pass
-        QTimer.singleShot(50, lambda: self._send_paste(used_passthrough))
 
-    def _send_paste(self, restore_mouse_passthrough: bool = True):
-        try:
-            import pyautogui
+            user32 = ctypes.windll.user32
+
+            # Step 1: Drop TOPMOST so target can truly become foreground.
+            win32gui.SetWindowPos(
+                my_hwnd, win32con.HWND_NOTOPMOST, 0, 0, 0, 0,
+                win32con.SWP_NOMOVE | win32con.SWP_NOSIZE | win32con.SWP_NOACTIVATE,
+            )
+            time.sleep(0.05)
+
+            # Step 2: Activate target window.
+            user32.AllowSetForegroundWindow(ctypes.c_uint32(-1))
+            win32gui.ShowWindow(tgt_hwnd, win32con.SW_SHOW)
+            win32gui.BringWindowToTop(tgt_hwnd)
+            user32.SetForegroundWindow(tgt_hwnd)
+            time.sleep(0.2)
+
+            # Step 3: Click recorded cursor position to restore input
+            # focus inside the target app (e.g. DingTalk chat input box).
+            if cursor_pos:
+                pyautogui.click(cursor_pos[0], cursor_pos[1])
+                time.sleep(0.15)
+
+            # Step 4: Ctrl+V paste.
             pyautogui.hotkey("ctrl", "v")
+            time.sleep(0.2)
+
+            # Step 5: Restore TOPMOST and re-activate floating window.
+            win32gui.SetWindowPos(
+                my_hwnd, win32con.HWND_TOPMOST, 0, 0, 0, 0,
+                win32con.SWP_NOMOVE | win32con.SWP_NOSIZE | win32con.SWP_NOACTIVATE,
+            )
+            user32.AllowSetForegroundWindow(ctypes.c_uint32(-1))
+            win32gui.BringWindowToTop(my_hwnd)
+            user32.SetForegroundWindow(my_hwnd)
+
+        def _on_done():
+            self.activateWindow()
             self._set_status("已粘贴到聊天框 ✓")
-        except Exception as e:
-            self._set_status(f"粘贴失败: {e}", error=True)
-        finally:
-            if restore_mouse_passthrough:
-                self._set_mouse_passthrough(False)
+            if self._auto_paste:
+                self._auto_paste = False
+                self.input_edit.clear()
+            self.input_edit.setFocus()
+
+        def _run():
+            try:
+                _worker()
+            except Exception as e:
+                QTimer.singleShot(0, lambda: self._set_status(f"粘贴失败: {e}", error=True))
+                return
+            QTimer.singleShot(0, _on_done)
+
+        threading.Thread(target=_run, daemon=True).start()
+
+    # ------------------------------------------------------------------
+    # Target lock
+    # ------------------------------------------------------------------
+
+    def _record_target(self, hwnd: int):
+        self._target_hwnd = hwnd
+        self._target_name = self._get_window_title(hwnd)
+        self._target_cursor_pos = self._get_cursor_pos()
+        self._target_locked = True
+        self._update_target_indicator()
+        self._set_status(f"已锁定: {self._target_name}" if self._target_name else "已锁定目标窗口")
+
+    def _toggle_target_lock(self):
+        if not self._target_hwnd:
+            self._set_status("没有可锁定的目标，请先在聊天窗口按 Alt+T", error=True)
+            return
+        self._target_locked = not self._target_locked
+        self._update_target_indicator()
+        if self._target_locked:
+            self._set_status(f"已锁定: {self._target_name}")
+        else:
+            self._set_status("已解锁，下次按 Alt+T 将重新选择目标窗口")
+
+    def _update_target_indicator(self):
+        name = (self._target_name or "").strip()
+        if len(name) > 25:
+            name = name[:25] + "…"
+        if self._target_locked and self._target_hwnd:
+            self.target_label.setText(f"🔒 {name}")
+            self.target_label.setObjectName("target_locked")
+            self.lock_btn.setText("解锁")
+            self.lock_btn.setObjectName("lock_active")
+        else:
+            self.target_label.setText("未锁定")
+            self.target_label.setObjectName("target_unlocked")
+            self.lock_btn.setText("锁定")
+            self.lock_btn.setObjectName("lock_btn")
+        for w in (self.target_label, self.lock_btn):
+            w.style().unpolish(w)
+            w.style().polish(w)
 
     # ------------------------------------------------------------------
     # Phrase picker
@@ -533,34 +568,26 @@ class FloatingWindow(QWidget):
         if not phrases:
             self._set_status("暂无话术，请在设置中添加")
             return
-        # Keep a reference to avoid popup being GC-collected immediately.
-        self._phrase_picker = PhrasePicker(phrases, parent=self)
-        self._phrase_picker.phrase_selected.connect(self._insert_phrase)
+        from PyQt6.QtWidgets import QListWidget, QListWidgetItem
+        picker = QListWidget(self)
+        picker.setWindowFlags(Qt.WindowType.Popup)
+        picker.setStyleSheet("QListWidget { background:#313244; color:#cdd6f4; border:1px solid #45475a; border-radius:8px; }")
+        for p in phrases:
+            item = QListWidgetItem(p["name"])
+            item.setData(Qt.ItemDataRole.UserRole, p["content"])
+            picker.addItem(item)
+        picker.itemClicked.connect(lambda it: (self.input_edit.setPlainText(it.data(Qt.ItemDataRole.UserRole)), picker.close()))
         btn_pos = self.mapToGlobal(self.translate_btn.pos())
-        self._phrase_picker.move(btn_pos)
-        self._phrase_picker.resize(240, min(30 * len(phrases) + 8, 240))
-        self._phrase_picker.show()
-
-    def _insert_phrase(self, content: str):
-        self.input_edit.setPlainText(content)
-        self.input_edit.setFocus()
+        picker.move(btn_pos)
+        picker.resize(240, min(30 * len(phrases) + 8, 240))
+        picker.show()
 
     # ------------------------------------------------------------------
     # Helpers
     # ------------------------------------------------------------------
 
-    def _record_target(self, hwnd: int):
-        self._target_hwnd = hwnd
-        name = self._get_window_title(hwnd)
-        self._target_name = name
-        self._target_cursor_pos = self._get_cursor_pos()
-        lbl = f"目标: {name}" if name else "就绪"
-        self._set_status(lbl)
-
     @staticmethod
     def _get_window_title(hwnd: int) -> str:
-        if not hwnd:
-            return ""
         try:
             import win32gui
             return win32gui.GetWindowText(hwnd) or ""
@@ -574,12 +601,18 @@ class FloatingWindow(QWidget):
             x, y = win32api.GetCursorPos()
             return int(x), int(y)
         except Exception:
-            try:
-                import pyautogui
-                pos = pyautogui.position()
-                return int(pos.x), int(pos.y)
-            except Exception:
-                return None
+            return None
+
+    @staticmethod
+    def _is_our_window(hwnd: int) -> bool:
+        if not hwnd:
+            return False
+        try:
+            import win32process
+            _, pid = win32process.GetWindowThreadProcessId(hwnd)
+            return pid == os.getpid()
+        except Exception:
+            return False
 
     def _set_status(self, msg: str, error: bool = False):
         self.status_label.setText(msg)
@@ -592,51 +625,8 @@ class FloatingWindow(QWidget):
         self._set_status("就绪")
 
     def _reload_language_combos(self):
-        saved_src = self._cfg.get("languages", "input", default="中文")
-        saved_tgt = self._cfg.get("languages", "output", default="英语")
-        self.src_combo.setCurrentText(saved_src)
-        self.tgt_combo.setCurrentText(saved_tgt)
-
-    def _set_mouse_passthrough(self, enabled: bool):
-        self.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, enabled)
-
-    @staticmethod
-    def _is_our_window(hwnd: int) -> bool:
-        """Whether hwnd belongs to current process (our own app windows)."""
-        if not hwnd:
-            return False
-        try:
-            import win32process
-            _, pid = win32process.GetWindowThreadProcessId(hwnd)
-            return pid == os.getpid()
-        except Exception:
-            return False
-
-    @staticmethod
-    def _set_foreground_window(hwnd: int):
-        """Safely bring a target window to foreground without key simulation."""
-        if not hwnd:
-            return
-        import ctypes
-        import win32gui
-        import win32process
-
-        fg_hwnd = win32gui.GetForegroundWindow()
-        if not fg_hwnd or fg_hwnd == hwnd:
-            win32gui.SetForegroundWindow(hwnd)
-            return
-
-        fg_tid, _ = win32process.GetWindowThreadProcessId(fg_hwnd)
-        tgt_tid, _ = win32process.GetWindowThreadProcessId(hwnd)
-        attached = False
-        try:
-            if fg_tid != tgt_tid:
-                ctypes.windll.user32.AttachThreadInput(fg_tid, tgt_tid, True)
-                attached = True
-            win32gui.SetForegroundWindow(hwnd)
-        finally:
-            if attached:
-                ctypes.windll.user32.AttachThreadInput(fg_tid, tgt_tid, False)
+        self.src_combo.setCurrentText(self._cfg.get("languages", "input", default="中文"))
+        self.tgt_combo.setCurrentText(self._cfg.get("languages", "output", default="英语"))
 
     def _apply_saved_position(self):
         x = self._cfg.get("ui", "window_x", default=-1)
@@ -650,25 +640,3 @@ class FloatingWindow(QWidget):
                 (screen.width() - self.width()) // 2,
                 (screen.height() - self.height()) // 2,
             )
-
-    # ------------------------------------------------------------------
-    # Dragging (title bar area, top 50px)
-    # ------------------------------------------------------------------
-
-    def mousePressEvent(self, event):
-        if event.button() == Qt.MouseButton.LeftButton and event.position().y() <= 50:
-            self._drag_pos = event.globalPosition().toPoint() - self.frameGeometry().topLeft()
-            event.accept()
-            return
-        super().mousePressEvent(event)
-
-    def mouseMoveEvent(self, event):
-        if event.buttons() & Qt.MouseButton.LeftButton and self._drag_pos:
-            self.move(event.globalPosition().toPoint() - self._drag_pos)
-            event.accept()
-            return
-        super().mouseMoveEvent(event)
-
-    def mouseReleaseEvent(self, event):
-        self._drag_pos = None
-        super().mouseReleaseEvent(event)

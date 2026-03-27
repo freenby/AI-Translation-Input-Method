@@ -16,8 +16,8 @@
   },
   "prompt_template": "请将以下{input_lang}翻译成{output_lang}，只返回翻译结果，不要解释： {text}",
   "ui": {
-    "window_x": 2384,
-    "window_y": 352,
+    "window_x": 2318,
+    "window_y": 301,
     "opacity": 0.97
   },
   "phrases": [
