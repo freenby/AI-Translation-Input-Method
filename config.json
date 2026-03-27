@@ -20,14 +20,20 @@
   },
   "prompt_template": "请将以下{input_lang}翻译成{output_lang}，只返回翻译结果，不要解释： {text}",
   "ui": {
-    "window_x": 58,
-    "window_y": 117,
-    "opacity": 0.97
+    "window_x": 2391,
+    "window_y": 263,
+    "opacity": 0.97,
+    "window_w": 400,
+    "window_h": 300
   },
   "phrases": [
     {
       "content": "您好，请问您的订单有什么问题需要帮助吗？",
       "name": "示例：催单话术"
+    },
+    {
+      "content": "如果对我们的服务满意，请给我们一个好评！",
+      "name": "好评吗"
     }
   ]
 }

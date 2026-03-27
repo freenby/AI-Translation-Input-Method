@@ -17,7 +17,7 @@ from PyQt6.QtGui import QFont, QKeySequence, QShortcut
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QTextEdit, QComboBox,
     QPushButton, QLabel, QFrame, QListWidget, QListWidgetItem,
-    QMenu, QApplication,
+    QMenu, QApplication, QSizeGrip,
 )
 from qframelesswindow import FramelessWindow
 
@@ -172,13 +172,13 @@ class FloatingWindow(FramelessWindow):
         self._apply_saved_position()
 
     # ------------------------------------------------------------------
-    # Window dragging
+    # Window dragging (title bar area only)
     # ------------------------------------------------------------------
 
     def mousePressEvent(self, event):
         if event.button() == Qt.MouseButton.LeftButton:
-            # 只在窗口顶部 60px 区域允许拖动（标题栏+语言栏）
-            if event.position().y() < 60:
+            # 只在窗口顶部 80px 区域允许拖动（标题栏+语言栏）
+            if event.position().y() < 80:
                 self._drag_pos = event.globalPosition().toPoint() - self.frameGeometry().topLeft()
                 event.accept()
                 return
@@ -203,7 +203,8 @@ class FloatingWindow(FramelessWindow):
         self.setWindowFlags(
             self.windowFlags() | Qt.WindowType.WindowStaysOnTopHint
         )
-        self.setMinimumWidth(600)
+        self.setMinimumSize(400, 300)
+        self.resize(560, 420)  # 默认大小
         self.setStyleSheet(STYLE)
         self.titleBar.hide()
 
@@ -233,9 +234,9 @@ class FloatingWindow(FramelessWindow):
 
         self.input_edit = InputTextEdit()
         self.input_edit.setPlaceholderText("在这里输入要翻译的内容…")
-        self.input_edit.setFixedHeight(130)
+        self.input_edit.setMinimumHeight(80)
         self.input_edit.enter_pressed.connect(self.do_translate)
-        card_layout.addWidget(self.input_edit)
+        card_layout.addWidget(self.input_edit, 1)  # stretch factor 1
 
         out_lbl = QLabel("翻译结果")
         out_lbl.setObjectName("section")
@@ -244,8 +245,8 @@ class FloatingWindow(FramelessWindow):
         self.output_edit = QTextEdit()
         self.output_edit.setReadOnly(True)
         self.output_edit.setPlaceholderText("翻译结果显示在这里…")
-        self.output_edit.setFixedHeight(130)
-        card_layout.addWidget(self.output_edit)
+        self.output_edit.setMinimumHeight(80)
+        card_layout.addWidget(self.output_edit, 1)  # stretch factor 1
 
         card_layout.addLayout(self._build_bottom_bar())
 
@@ -355,6 +356,12 @@ class FloatingWindow(FramelessWindow):
         clear_btn.clicked.connect(self._clear_all)
         bar.addWidget(clear_btn)
 
+        # 右下角调整大小控件
+        size_grip = QSizeGrip(self)
+        size_grip.setFixedSize(16, 16)
+        size_grip.setStyleSheet("background: transparent;")
+        bar.addWidget(size_grip)
+
         return bar
 
     # ------------------------------------------------------------------
@@ -386,8 +393,11 @@ class FloatingWindow(FramelessWindow):
 
     def hide_window(self):
         pos = self.pos()
+        size = self.size()
         self._cfg.set(pos.x(), "ui", "window_x")
         self._cfg.set(pos.y(), "ui", "window_y")
+        self._cfg.set(size.width(), "ui", "window_w")
+        self._cfg.set(size.height(), "ui", "window_h")
         self.hide()
 
     def show_settings(self):
@@ -693,11 +703,18 @@ class FloatingWindow(FramelessWindow):
     def _apply_saved_position(self):
         x = self._cfg.get("ui", "window_x", default=-1)
         y = self._cfg.get("ui", "window_y", default=-1)
+        w = self._cfg.get("ui", "window_w", default=-1)
+        h = self._cfg.get("ui", "window_h", default=-1)
+
+        # 恢复大小
+        if w > 0 and h > 0:
+            self.resize(max(400, w), max(300, h))
+
+        # 恢复位置
         if x >= 0 and y >= 0:
             self.move(x, y)
         else:
             screen = QApplication.primaryScreen().geometry()
-            self.adjustSize()
             self.move(
                 (screen.width() - self.width()) // 2,
                 (screen.height() - self.height()) // 2,
