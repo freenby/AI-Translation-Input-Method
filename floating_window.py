@@ -291,7 +291,7 @@ class FloatingWindow(FramelessWindow):
         bar = QHBoxLayout()
         bar.setSpacing(10)
 
-        title = QLabel("⚡ AI翻译")
+        title = QLabel("⚡ AI翻译输入法")
         title.setObjectName("title")
         bar.addWidget(title)
 

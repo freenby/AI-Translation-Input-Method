@@ -6,7 +6,7 @@
   "api": {
     "api_key": "sk-sp-a1915429e64745dc83721a7f5bc9d7cf",
     "base_url": "https://coding-intl.dashscope.aliyuncs.com/v1",
-    "model": "MiniMax-M2.5",
+    "model": "qwen3-coder-plus",
     "timeout": 30,
     "proxy": ""
   },
@@ -20,11 +20,11 @@
   },
   "prompt_template": "请将以下{input_lang}翻译成{output_lang}，只返回翻译结果，不要解释： {text}",
   "ui": {
-    "window_x": 1938,
-    "window_y": 701,
+    "window_x": 2316,
+    "window_y": 432,
     "opacity": 0.97,
-    "window_w": 544,
-    "window_h": 362
+    "window_w": 765,
+    "window_h": 470
   },
   "phrases": [
     {
