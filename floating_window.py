@@ -337,13 +337,33 @@ class FloatingWindow(FramelessWindow):
         self.src_combo.setCurrentText(self._cfg.get("languages", "input", default="中文"))
         bar.addWidget(self.src_combo)
 
-        bar.addSpacing(20)
+        bar.addSpacing(10)
 
-        arrow = QLabel("→")
-        arrow.setStyleSheet("color: #cba6f7; font-size: 18px; font-weight: bold;")
-        bar.addWidget(arrow)
+        # 可点击的箭头按钮，用于切换源语言和目标语言
+        swap_btn = QPushButton("⇄")
+        swap_btn.setToolTip("点击切换源语言和目标语言")
+        swap_btn.setStyleSheet("""
+            QPushButton {
+                background-color: transparent;
+                color: #cba6f7;
+                border: 1px solid #45475a;
+                border-radius: 6px;
+                padding: 4px 12px;
+                font-size: 16px;
+                font-weight: bold;
+            }
+            QPushButton:hover {
+                background-color: #313244;
+                border-color: #cba6f7;
+            }
+            QPushButton:pressed {
+                background-color: #45475a;
+            }
+        """)
+        swap_btn.clicked.connect(self._swap_languages)
+        bar.addWidget(swap_btn)
 
-        bar.addSpacing(20)
+        bar.addSpacing(10)
 
         tgt_lbl = QLabel("目标语言:")
         tgt_lbl.setStyleSheet("color: #a6adc8; font-size: 13px;")
@@ -358,6 +378,14 @@ class FloatingWindow(FramelessWindow):
         bar.addStretch()
 
         return bar
+
+    def _swap_languages(self):
+        """切换源语言和目标语言"""
+        src = self.src_combo.currentText()
+        tgt = self.tgt_combo.currentText()
+        self.src_combo.setCurrentText(tgt)
+        self.tgt_combo.setCurrentText(src)
+        self._set_status(f"已切换: {tgt} → {src}")
 
     def _build_bottom_bar(self) -> QHBoxLayout:
         bar = QHBoxLayout()

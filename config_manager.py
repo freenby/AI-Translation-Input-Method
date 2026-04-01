@@ -1,6 +1,18 @@
 import json
+import os
 from copy import deepcopy
 from pathlib import Path
+
+def get_config_path() -> Path:
+    """Get config path in user's AppData folder (writable without admin)."""
+    appdata = os.environ.get("APPDATA", "")
+    if appdata:
+        config_dir = Path(appdata) / "AI翻译输入法"
+    else:
+        # Fallback to user home directory
+        config_dir = Path.home() / ".ai_translator"
+    config_dir.mkdir(parents=True, exist_ok=True)
+    return config_dir / "config.json"
 
 DEFAULT_CONFIG = {
     "hotkeys": {
@@ -35,7 +47,7 @@ DEFAULT_CONFIG = {
     ],
 }
 
-CONFIG_PATH = Path(__file__).parent / "config.json"
+CONFIG_PATH = get_config_path()
 
 LANGUAGES = {
     "中文": "zh",
