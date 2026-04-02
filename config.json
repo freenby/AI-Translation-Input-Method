@@ -4,7 +4,7 @@
     "translate_clipboard": "alt+c"
   },
   "api": {
-    "api_key": "sk-sp-a1915429e64745dc83721a7f5bc9d7cf",
+    "api_key": "",
     "base_url": "https://coding-intl.dashscope.aliyuncs.com/v1",
     "model": "qwen3-coder-plus",
     "timeout": 30,
