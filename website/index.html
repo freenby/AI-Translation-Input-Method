@@ -269,83 +269,67 @@
             background: rgba(124, 58, 237, 0.1);
         }
 
-        /* Screenshot Preview */
+        /* Screenshot Preview Carousel */
         .hero-preview {
-            margin-top: 4rem;
+            margin-top: 2.5rem;
             position: relative;
-        }
-
-        .preview-window {
-            background: var(--bg-card);
-            border-radius: 16px;
-            border: 1px solid var(--border);
-            padding: 1rem;
-            max-width: 560px;
-            margin: 0 auto;
-            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
-        }
-
-        .preview-header {
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-            padding-bottom: 1rem;
-            border-bottom: 1px solid var(--border);
-            margin-bottom: 1rem;
-        }
-
-        .preview-dot {
-            width: 12px;
-            height: 12px;
-            border-radius: 50%;
-        }
-
-        .preview-dot.red { background: #ef4444; }
-        .preview-dot.yellow { background: #eab308; }
-        .preview-dot.green { background: #22c55e; }
-
-        .preview-title {
+            width: 84%;
+            max-width: 624px;
             margin-left: auto;
             margin-right: auto;
-            font-size: 0.85rem;
-            color: var(--text-secondary);
         }
 
-        .preview-content {
-            padding: 1rem;
-        }
-
-        .preview-row {
-            display: flex;
-            align-items: center;
-            gap: 1rem;
-            margin-bottom: 1rem;
-        }
-
-        .preview-label {
-            font-size: 0.8rem;
-            color: var(--text-secondary);
-            width: 60px;
-        }
-
-        .preview-input {
-            flex: 1;
-            background: rgba(255, 255, 255, 0.05);
+        .carousel {
+            position: relative;
+            width: 100%;
+            overflow: hidden;
+            border-radius: 16px;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
             border: 1px solid var(--border);
-            border-radius: 8px;
-            padding: 0.75rem 1rem;
-            color: var(--text-primary);
-            font-size: 0.9rem;
         }
 
-        .preview-arrow {
-            color: var(--primary-light);
-            font-size: 1.25rem;
+        .carousel-track {
+            display: flex;
+            width: 100%;
+            will-change: transform;
+            transition: transform 0.5s ease-in-out;
         }
 
-        .preview-output {
-            background: rgba(124, 58, 237, 0.1);
-            border: 1px solid rgba(124, 58, 237, 0.3);
+        .carousel-slide {
+            width: 100%;
+            min-width: 100%;
+            flex: 0 0 100%;
+        }
+
+        .carousel-slide img {
+            width: 100%;
+            height: auto;
+            display: block;
+        }
+
+        .carousel-dots {
+            display: flex;
+            justify-content: center;
+            gap: 0.5rem;
+            margin-top: 1rem;
+        }
+
+        .carousel-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: var(--border);
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .carousel-dot.active {
+            background: var(--primary);
+            transform: scale(1.2);
+        }
+
+        .carousel-dot:hover {
+            background: var(--primary-light);
         }
 
         /* Section Styles */
@@ -716,30 +700,23 @@
                 </a>
             </div>
 
-            <!-- App Preview -->
+            <!-- App Preview Carousel -->
             <div class="hero-preview">
-                <div class="preview-window">
-                    <div class="preview-header">
-                        <span class="preview-dot red"></span>
-                        <span class="preview-dot yellow"></span>
-                        <span class="preview-dot green"></span>
-                        <span class="preview-title">⚡ AI翻译输入法</span>
+                <div class="carousel">
+                    <div class="carousel-track">
+                        <div class="carousel-slide"><img src="images/screenshot-main.png" alt="AI翻译输入法主界面"></div>
+                        <div class="carousel-slide"><img src="images/screenshot-1.png" alt="AI翻译输入法界面"></div>
+                        <div class="carousel-slide"><img src="images/screenshot-2.png" alt="API配置设置"></div>
+                        <div class="carousel-slide"><img src="images/screenshot-3.png" alt="语言设置"></div>
+                        <div class="carousel-slide"><img src="images/screenshot-4.png" alt="快捷话术"></div>
                     </div>
-                    <div class="preview-content">
-                        <div class="preview-row">
-                            <span class="preview-label">源语言</span>
-                            <div class="preview-input">中文</div>
-                            <span class="preview-arrow">⇄</span>
-                            <div class="preview-input">英语</div>
-                            <span class="preview-label">目标语言</span>
-                        </div>
-                        <div class="preview-row">
-                            <div class="preview-input" style="width: 100%;">您好，请问这个产品还有货吗？</div>
-                        </div>
-                        <div class="preview-row">
-                            <div class="preview-input preview-output" style="width: 100%;">Hello, is this product still in stock?</div>
-                        </div>
-                    </div>
+                </div>
+                <div class="carousel-dots">
+                    <span class="carousel-dot active" data-index="0"></span>
+                    <span class="carousel-dot" data-index="1"></span>
+                    <span class="carousel-dot" data-index="2"></span>
+                    <span class="carousel-dot" data-index="3"></span>
+                    <span class="carousel-dot" data-index="4"></span>
                 </div>
             </div>
         </div>
@@ -928,8 +905,51 @@
         </div>
     </footer>
 
-    <!-- FAQ Toggle Script -->
+    <!-- Scripts -->
     <script>
+        // Screenshot Carousel
+        (function() {
+            const track = document.querySelector('.carousel-track');
+            const dots = document.querySelectorAll('.carousel-dot');
+            const slideCount = 5;
+            let currentIndex = 0;
+            let autoPlayInterval;
+
+            function goToSlide(index) {
+                currentIndex = index;
+                track.style.transform = `translateX(-${index * 100}%)`;
+                dots.forEach((dot, i) => {
+                    dot.classList.toggle('active', i === index);
+                });
+            }
+
+            function nextSlide() {
+                goToSlide((currentIndex + 1) % slideCount);
+            }
+
+            // Auto-play every 3 seconds
+            function startAutoPlay() {
+                autoPlayInterval = setInterval(nextSlide, 3000);
+            }
+
+            function stopAutoPlay() {
+                clearInterval(autoPlayInterval);
+            }
+
+            // Dot click handlers
+            dots.forEach(dot => {
+                dot.addEventListener('click', () => {
+                    stopAutoPlay();
+                    goToSlide(parseInt(dot.dataset.index));
+                    startAutoPlay();
+                });
+            });
+
+            // Start auto-play
+            startAutoPlay();
+        })();
+
+        // FAQ Toggle
         document.querySelectorAll('.faq-question').forEach(question => {
             question.addEventListener('click', () => {
                 const item = question.parentElement;

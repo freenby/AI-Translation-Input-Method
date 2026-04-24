@@ -156,6 +156,8 @@ class InputTextEdit(QTextEdit):
 # ---------------------------------------------------------------------------
 class FloatingWindow(FramelessWindow):
 
+    settings_saved = pyqtSignal()
+
     def __init__(self, config: ConfigManager, translator: Translator, parent=None):
         super().__init__(parent)
         self._cfg = config
@@ -450,23 +452,64 @@ class FloatingWindow(FramelessWindow):
     # ------------------------------------------------------------------
 
     def show_window(self):
-        self.show()
+        # If the window was previously hidden (SW_HIDE), Windows occasionally
+        # refuses the immediately-following SetForegroundWindow.  Waking it
+        # out of a minimised/hidden state first gives Windows a chance to
+        # mark the HWND as "restorable" before we grab foreground.
+        if self.isMinimized():
+            self.showNormal()
+        else:
+            self.show()
         self.raise_()
         self.activateWindow()
         self.input_edit.setFocus()
-        QTimer.singleShot(100, self._ensure_focus)
+
+        # Grab foreground SYNCHRONOUSLY -- we are still inside the WM_HOTKEY
+        # dispatch context and therefore still hold the temporary "last input
+        # event" permission Windows hands to the receiving process.  Waiting
+        # 100ms used to let that permission expire, producing the "sometimes
+        # the hotkey does nothing" symptom users reported.
+        self._ensure_focus()
+        # Fallback retry once Qt has finished any deferred show/layout work.
+        QTimer.singleShot(80, self._ensure_focus)
 
     def _ensure_focus(self):
-        """Delayed focus grab — ensures our window gets input after hotkey."""
+        """Force our window to foreground, bypassing focus-stealing prevention.
+
+        Uses AttachThreadInput to temporarily merge input queues with the
+        current foreground thread, which lets SetForegroundWindow succeed
+        even when Windows would otherwise block it.  Safe to call multiple
+        times -- if we are already the foreground window, most calls reduce
+        to a no-op.
+        """
         import ctypes
         import win32gui
-        import win32con
+        import win32process
         try:
-            hwnd = int(self.winId())
             user32 = ctypes.windll.user32
+            our_hwnd = int(self.winId())
+            fg_hwnd = win32gui.GetForegroundWindow()
+            our_tid = user32.GetCurrentThreadId()
+
+            attached = False
+            fg_tid = 0
+            if fg_hwnd and fg_hwnd != our_hwnd:
+                try:
+                    fg_tid, _ = win32process.GetWindowThreadProcessId(fg_hwnd)
+                except Exception:
+                    fg_tid = 0
+                if fg_tid and fg_tid != our_tid:
+                    attached = bool(user32.AttachThreadInput(fg_tid, our_tid, True))
+
             user32.AllowSetForegroundWindow(ctypes.c_uint32(-1))
-            win32gui.BringWindowToTop(hwnd)
-            user32.SetForegroundWindow(hwnd)
+            user32.ShowWindow(our_hwnd, 5)          # SW_SHOW
+            user32.BringWindowToTop(our_hwnd)
+            user32.SetForegroundWindow(our_hwnd)
+            user32.SetActiveWindow(our_hwnd)
+            user32.SetFocus(our_hwnd)
+
+            if attached:
+                user32.AttachThreadInput(fg_tid, our_tid, False)
         except Exception:
             pass
         self.activateWindow()
@@ -496,6 +539,7 @@ class FloatingWindow(FramelessWindow):
     def _on_settings_closed(self, _result: int):
         self._reload_language_combos()
         self._settings_dlg = None
+        self.settings_saved.emit()
 
     # ------------------------------------------------------------------
     # Hotkey slots
@@ -579,7 +623,7 @@ class FloatingWindow(FramelessWindow):
             self._set_status("没有翻译结果可粘贴", error=True)
             return
         if not self._target_hwnd or self._is_our_window(self._target_hwnd):
-            self._set_status("未记录有效目标窗口，请先在聊天框按 Alt+T", error=True)
+            self._set_status("未记录有效目标窗口，请先在聊天框按 Ctrl+F1", error=True)
             return
 
         pyperclip.copy(text)
@@ -719,7 +763,7 @@ class FloatingWindow(FramelessWindow):
 
                 self._target_locked = True
                 self._update_target_indicator()
-                self._set_status(f"已锁定: {self._target_name}（如输入位置不对，请用 Alt+T 重新锁定）")
+                self._set_status(f"已锁定: {self._target_name}（如输入位置不对，请用 Ctrl+F1 重新锁定）")
             else:
                 self._set_status("请先点击聊天窗口，再点击「锁定」", error=True)
         except Exception as e:

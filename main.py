@@ -57,10 +57,19 @@ class TranslatorApp:
 
         self._translator = Translator(self._cfg)
         self._window = FloatingWindow(self._cfg, self._translator)
+        # Force native HWND creation so the hotkey manager can target it
+        # immediately -- without this the HWND is only created lazily on
+        # first show(), meaning the very first Ctrl+F1 press would have no
+        # window to bring to the foreground.
+        self._window.ensurePolished()
+        self._window_hwnd = int(self._window.winId())
+
         self._hotkeys = HotkeyManager()
+        self._hotkeys.set_target_hwnd(self._window_hwnd)
 
         self._setup_tray()
         self._setup_hotkeys()
+        self._window.settings_saved.connect(self.refresh_hotkeys)
         self._check_first_run()
 
     # ------------------------------------------------------------------
@@ -83,7 +92,7 @@ class TranslatorApp:
             QMenu::separator { height: 1px; background-color: #45475a; margin: 4px 0; }
         """)
 
-        open_action = QAction("打开翻译窗口  (Alt+T)", self.app)
+        open_action = QAction("打开翻译窗口  (Ctrl+F1)", self.app)
         open_action.triggered.connect(self._window.show_window)
         menu.addAction(open_action)
 
@@ -112,18 +121,39 @@ class TranslatorApp:
     # Global hotkeys
     # ------------------------------------------------------------------
     def _setup_hotkeys(self):
-        show_hk = self._cfg.get("hotkeys", "show_window", default="alt+t")
-        clip_hk = self._cfg.get("hotkeys", "translate_clipboard", default="alt+c")
+        show_hk = self._cfg.get("hotkeys", "show_window", default="ctrl+f1")
+        clip_hk = self._cfg.get("hotkeys", "translate_clipboard", default="ctrl+f2")
 
-        self._hotkeys.show_window_triggered.connect(self._window.on_hotkey_show)
-        self._hotkeys.translate_clipboard_triggered.connect(
-            self._window.on_hotkey_translate_clipboard
-        )
+        # Connect signals only once; refresh_hotkeys() re-calls setup() to
+        # unregister+re-register without re-wiring connections.
+        if not getattr(self, "_hotkey_signals_connected", False):
+            self._hotkeys.show_window_triggered.connect(self._window.on_hotkey_show)
+            self._hotkeys.translate_clipboard_triggered.connect(
+                self._window.on_hotkey_translate_clipboard
+            )
+            self._hotkeys.registration_failed.connect(self._on_hotkey_registration_failed)
+            self._hotkey_signals_connected = True
+
         self._hotkeys.setup(show_hk, clip_hk)
+
+    def _on_hotkey_registration_failed(self, hotkey: str, reason: str):
+        """Tell the user that a hotkey could not be bound.
+
+        With RegisterHotKey, a conflicting shortcut fails cleanly with
+        error 1409 -- the system keyboard is NOT disturbed in any way.
+        The old keyboard-hook implementation could leave modifier keys
+        stuck in this situation, forcing a reboot.
+        """
+        self.tray.showMessage(
+            "AI翻译输入法 — 热键冲突",
+            f"热键 {hotkey} 注册失败：{reason}\n"
+            f"请右键托盘图标 → 设置 → 热键设置，换一个不冲突的组合。",
+            QSystemTrayIcon.MessageIcon.Warning,
+            8000,
+        )
 
     def refresh_hotkeys(self):
         """Re-read config and re-register hotkeys (called after settings save)."""
-        self._hotkeys.unregister_all()
         self._setup_hotkeys()
 
     # ------------------------------------------------------------------

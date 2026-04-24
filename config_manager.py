@@ -16,8 +16,8 @@ def get_config_path() -> Path:
 
 DEFAULT_CONFIG = {
     "hotkeys": {
-        "show_window": "alt+t",
-        "translate_clipboard": "alt+c",
+        "show_window": "ctrl+f1",
+        "translate_clipboard": "ctrl+f2",
     },
     "api": {
         "api_key": "",

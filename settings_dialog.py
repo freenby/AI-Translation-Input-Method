@@ -439,17 +439,17 @@ class SettingsDialog(QDialog):
         form.setLabelAlignment(Qt.AlignmentFlag.AlignRight)
 
         self.hotkey_show = HotkeyRecorder(
-            self._cfg.get("hotkeys", "show_window", default="alt+t")
+            self._cfg.get("hotkeys", "show_window", default="ctrl+f1")
         )
         form.addRow("呼出翻译窗口:", self.hotkey_show)
 
         self.hotkey_clip = HotkeyRecorder(
-            self._cfg.get("hotkeys", "translate_clipboard", default="alt+c")
+            self._cfg.get("hotkeys", "translate_clipboard", default="ctrl+f2")
         )
         form.addRow("翻译剪贴板:", self.hotkey_clip)
 
         hint = QLabel(
-            "格式：alt+t / ctrl+shift+k 等（小写+号分隔）\n"
+            "格式：ctrl+f1 / ctrl+shift+k 等（小写+号分隔）\n"
             "点击「录制」按钮后直接按下想要的组合键。"
         )
         hint.setObjectName("hint")
