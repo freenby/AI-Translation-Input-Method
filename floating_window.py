@@ -456,6 +456,15 @@ class FloatingWindow(FramelessWindow):
         # refuses the immediately-following SetForegroundWindow.  Waking it
         # out of a minimised/hidden state first gives Windows a chance to
         # mark the HWND as "restorable" before we grab foreground.
+        try:
+            from hotkey_manager import _dbg
+            _dbg(
+                f"[SHOW_WINDOW] enter isVisible={self.isVisible()} "
+                f"isMinimized={self.isMinimized()} isActiveWindow={self.isActiveWindow()} "
+                f"current_winId=0x{int(self.winId()):X}"
+            )
+        except Exception:
+            pass
         if self.isMinimized():
             self.showNormal()
         else:
@@ -463,6 +472,14 @@ class FloatingWindow(FramelessWindow):
         self.raise_()
         self.activateWindow()
         self.input_edit.setFocus()
+        try:
+            from hotkey_manager import _dbg
+            _dbg(
+                f"[SHOW_WINDOW] after show isVisible={self.isVisible()} "
+                f"isMinimized={self.isMinimized()} isActiveWindow={self.isActiveWindow()}"
+            )
+        except Exception:
+            pass
 
         # Grab foreground SYNCHRONOUSLY -- we are still inside the WM_HOTKEY
         # dispatch context and therefore still hold the temporary "last input
@@ -546,6 +563,11 @@ class FloatingWindow(FramelessWindow):
     # ------------------------------------------------------------------
 
     def on_hotkey_show(self, hwnd: int):
+        try:
+            from hotkey_manager import _dbg
+            _dbg(f"[ON_HOTKEY_SHOW] received fg_hwnd=0x{hwnd:X}")
+        except Exception:
+            pass
         if hwnd and not self._is_our_window(hwnd):
             if self._target_locked:
                 self._set_status(f"已锁定: {self._target_name}")
